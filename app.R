@@ -124,13 +124,15 @@ server <- function(input, output, session) {
  plotDataFront <- gather(acrossYears, Year, Value,yearColumns[1]:yearColumns[length(yearColumns)], factor_key=TRUE) %>% dplyr::filter(., Element == "Yield" & Item == "Maize")
  plotDataFront[,"Year"] <- substr(plotDataFront$Year,2,5) %>% as.numeric
  plotDataFront$Value <- plotDataFront$Value / 10000 
- plotData <- plotDataFront %>% group_by(Year)
 
+ plotData <- plotDataFront %>% group_by(Year) %>% summarise(Mean= mean(Value, na.rm =T))
 
+ plot_ly(data = plotData, x = as.character(plotData[["Year"]]), y = ~Mean, type = "scatter", mode = "lines")
+ 
  output$frontPlot <- renderPlotly({ 
-   ggplot(plotData, aes(Year, Value)) + lineTheme + geom_smooth(na.rm = T, se = T, size = 1.2, method = "loess") + scale_x_continuous(breaks = seq(1970, 2010, 10), minor_breaks = seq(1961,2014,1))+ coord_cartesian(xlim = c(1961, 2014), expand = F)+ 
-     xlab("Year (y)")+ ylab("Average Yield (t/ha)")+ggtitle("Average Corn Yield in Europe across Time")
- })
+    frontPlot <- plot_ly(data = plotData, x = as.character(plotData[["Year"]]), y = ~Mean, type = "scatter", mode = "lines")
+return(frontPlot)
+})
  
  ##########################################
  ## First tab, by country and year ########
@@ -158,7 +160,10 @@ server <- function(input, output, session) {
 plotBarAvgYield1 <- eventReactive(input$viewButton1,{ 
     plotData <- getData1()
     plotData <- dplyr::filter(plotData,Element == "Yield")
-    plot <-plot_ly(data = plotData, x =  plotData[["Item"]], y=plotData[[paste("Y",input$selectYear1,sep = "")]], type = "bar")
+    plotTitle <- paste("Average Yield in",input$selectCountry1,"in",input$selectYear1)
+    plot <-plot_ly(data = plotData, x =  plotData[["Item"]], 
+                   y=plotData[[paste("Y",input$selectYear1,sep = "")]], color= plotData[["Item"]], type = "bar") %>%
+      layout(yaxis = list(title= "Yield in t/ha"), title = plotTitle)
              #    geom_col(width = 0.5)+xlab("Crop") + ylab("Yield in t/ha") + ggtitle(paste("Average Yield in",input$selectCountry1,"in",input$selectYear1))+ 
               #   mainTheme +  scale_fill_brewer(palette = "Paired")
    return(plot)})
