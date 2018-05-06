@@ -316,4 +316,4 @@ output$acrossYearsPlotB <- renderPlotly(plotAcrossYearsB())
 shinyApp(ui = ui, server = server)
 
 #rsconnect::setAccountInfo(name='buzzwinkel', token='D2B6A38F5FBE4C51B5BACEC30E2DA66F', secret='ggsXQnt15mHBUfGefD9F8vd701FBhjqdGAkzlDGn')
-#rsconnect::deployApp("F:/GitHub/FAO.CropExplorer", appTitle = "FAO Crops Explorer")
+#rsconnect::deployApp("F:/GitHub/faoCropExplorer", appTitle = "FAO Crops Explorer")
