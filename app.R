@@ -1,6 +1,6 @@
 options(scipen = 30)
 
-require(shiny); require(knitr); require(dplyr); require(rlang); require(tidyr); require(Cairo); require(plotly);
+require(shiny); require(knitr); require(dplyr); require(rlang); require(plotly); require(tidyr);
 
 
 # Define UI for application that draws a histogram
@@ -79,6 +79,11 @@ plotDataFront <- gather(acrossYears, Year, Value,yearColumns[1]:yearColumns[leng
 plotDataFront[,"Year"] <- substr(plotDataFront$Year,2,5) %>% as.numeric
 plotDataFront$Value <- plotDataFront$Value / 10000 
 
+plotData <- plotDataFront %>% group_by(Year) %>% summarise(Mean= mean(Value, na.rm =T), SD = sd(Value, na.rm =T))
+plotData$lowBound <- plotData$Mean - plotData$SD
+plotData$highBound <- plotData$Mean + plotData$SD
+plotData$linearModel <- lm(Mean ~ Year, data = plotData) %>% fitted
+
 
 yieldThen <- list(
   xref = 'paper',
@@ -108,11 +113,6 @@ yieldNow <- list(
               color = 'rgba(67,67,67,1)'),
   showarrow = FALSE)
 
-plotData <- plotDataFront %>% group_by(Year) %>% summarise(Mean= mean(Value, na.rm =T), SD = sd(Value, na.rm =T))
-plotData$lowBound <- plotData$Mean - plotData$SD
-plotData$highBound <- plotData$Mean + plotData$SD
-plotData$linearModel <- lm(Mean ~ Year, data = plotData) %>% fitted
-
 
 ####################################################
 # Define server logic ##############################
@@ -122,7 +122,7 @@ server <- function(input, output, session) {
   output$aboutApp <- renderUI({
     HTML(paste("<p style=text-align: justify;text-justify: inter-word;>","About the App:", 
                "This Shiny App was developed as a personal learning playground, feedback and suggestions are 
-               therefore always welcome. This is not an official FAO site.</p>", sep="<br/>"))
+               therefore always welcome</p>", sep="<br/>"))
   })
   
   output$aboutMe <- renderUI({
@@ -348,5 +348,5 @@ output$acrossYearsPlotB <- renderPlotly(plotAcrossYearsB())
 # Run the application 
 shinyApp(ui = ui, server = server)
 
-#rsconnect::setAccountInfo(name='buzzwinkel', token='D2B6A38F5FBE4C51B5BACEC30E2DA66F', secret='ggsXQnt15mHBUfGefD9F8vd701FBhjqdGAkzlDGn')
+#rsconnect::setAccountInfo(name=Sys.getenv("SHINYAPPS_NAME"), token=Sys.getenv("SHINYAPPS_TOKEN"), secret=Sys.getenv("SHINYAPPS_SECRET"))
 #rsconnect::deployApp("F:/GitHub/faoCropExplorer", appTitle = "FAO Crops Explorer")
