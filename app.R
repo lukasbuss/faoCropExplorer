@@ -11,7 +11,7 @@ ui <- fluidPage(theme = "bootstrap.css",
    ## SIDEBAR
   sidebarLayout(
     sidebarPanel( width = 2,
-      fluidRow(a(href='http://fao.org',target="_blank", img(src='FAO_logo.png', align = "center"))),
+      fluidRow(a(href='http://fao.org',target="_blank", img(src='FAO_logo.png', width = 200, height = 200))),
       fluidRow(a(href="https://github.com/elalemano/FAO.CropExplorer",target="_blank", align = "left", target="_blank",
               shiny::icon("code", lib = "font-awesome"), "Source Code")),
       fluidRow(a(href="mailto:l_busswinkel@hotmail.de", target="_blank", align = "left", shiny::icon("envelope", lib = "font-awesome"),
@@ -30,18 +30,17 @@ ui <- fluidPage(theme = "bootstrap.css",
      tabsetPanel(type = "tabs",
            tabPanel("Home", 
           fluidRow(column(12, wellPanel(plotlyOutput(outputId = "frontPlot")))), 
-          fluidRow(h3(em("If you desire peace, cultivate justice, but at the same time cultivate the fields to produce more bread; otherwise there will be no peace"))
-                   ),
+          fluidRow(h3(tags$blockquote("If you desire peace, cultivate justice, but at the same time cultivate the fields to produce more bread; otherwise there will be no peace"))                   ),
           fluidRow(column(3, offset = 9, h5(em("Norman Borlaug"))))),
            
            tabPanel( "By Country",fluidRow(column(6, wellPanel(uiOutput("selectCountry1"), uiOutput("selectYear1"), uiOutput("selectCrop1"),actionButton("viewButton1", "View", icon = icon("eye")))),
                                           column(6, wellPanel(plotlyOutput(outputId = "plotBarAvgYield1")))),
-                     br(),
+                    
                                  fluidRow(column(6, wellPanel(plotlyOutput(outputId = "plotBarArea1"))),
                                           (column(6, wellPanel(plotlyOutput(outputId = "plotBarProduction1")))))),
            tabPanel("By Crop",fluidRow(column(6,wellPanel(uiOutput("selectCrop2"),uiOutput("selectYear2"), uiOutput("selectCountries2"),actionButton("viewButton2", "View", icon = icon("eye")))),
                                      column(6,wellPanel(plotlyOutput(outputId = "plotBarAvgYield2")))),
-                    br(),
+              
                     fluidRow(column(6, wellPanel(plotlyOutput(outputId = "plotBarArea2"))),
                              column(6, wellPanel(plotlyOutput(outputId = "plotBarProduction2"))))),
            
@@ -80,7 +79,35 @@ plotDataFront <- gather(acrossYears, Year, Value,yearColumns[1]:yearColumns[leng
 plotDataFront[,"Year"] <- substr(plotDataFront$Year,2,5) %>% as.numeric
 plotDataFront$Value <- plotDataFront$Value / 10000 
 
-# areas <- gather(acrossYears, Year, Value,yearColumns[1]:yearColumns[length(yearColumns)], factor_key=TRUE) %>% dplyr::filter(., Element == "Area harvested" & Item == "Maize")
+
+yieldThen <- list(
+  xref = 'paper',
+  yref = 'y',
+  x = 0.05,
+  y = plotData$Mean[1],
+  xanchor = 'right',
+  yanchor = 'middle',
+  text = paste(round(plotData$Mean[1],2), "(t/ha)"),
+  autosize = TRUE,
+  font = list(family = 'Arial',
+              size = 16,
+              color = 'rgba(67,67,67,1)'),
+  showarrow = FALSE)
+
+yieldNow <- list(
+  xref = 'paper',
+  yref = 'y',
+  x = 1.00,
+  y = plotData$Mean[54] - 0.3,
+  xanchor = 'right',
+  yanchor = 'middle',
+  text = paste(round(plotData$Mean[54],2), "(t/ha)"),
+  autosize = TRUE,
+  font = list(family = 'Arial',
+              size = 16,
+              color = 'rgba(67,67,67,1)'),
+  showarrow = FALSE)
+
 plotData <- plotDataFront %>% group_by(Year) %>% summarise(Mean= mean(Value, na.rm =T), SD = sd(Value, na.rm =T))
 plotData$lowBound <- plotData$Mean - plotData$SD
 plotData$highBound <- plotData$Mean + plotData$SD
@@ -91,7 +118,6 @@ plotData$linearModel <- lm(Mean ~ Year, data = plotData) %>% fitted
 # Define server logic ##############################
 ####################################################
 server <- function(input, output, session) { 
-  options(shiny.usecairo=T)
   
   output$aboutApp <- renderUI({
     HTML(paste("<p style=text-align: justify;text-justify: inter-word;>","About the App:", 
@@ -113,7 +139,9 @@ server <- function(input, output, session) {
  output$frontPlot <- renderPlotly({ 
     frontPlot <- plot_ly(data = plotData, x = as.character(plotData[["Year"]]), y = ~Mean, type = "scatter",  name = "Average Yield") %>%
       add_trace(data = plotData, x = as.character(plotData[["Year"]]), y = ~linearModel, mode = "lines", name = "Fitted Yield") %>% 
-      layout(showlegend = FALSE, yaxis = list(title = "Average Yield (t/ha)"), xaxis = list(tickangle = 45), title ="Average Corn Yield in Europe")
+      layout(showlegend = FALSE, yaxis = list(title = "Average Yield (t/ha)"), xaxis = list(tickangle = 45), title ="Average Corn Yield in Europe") %>%
+      layout(annotations = yieldThen) %>% 
+      layout(annotations = yieldNow) 
 return(frontPlot)
 })
  
