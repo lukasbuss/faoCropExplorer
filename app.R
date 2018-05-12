@@ -12,7 +12,7 @@ ui <- fluidPage(theme = "bootstrap.css",
   sidebarLayout(
     sidebarPanel( width = 2,
       fluidRow(a(href='http://fao.org',target="_blank", img(src='FAO_logo.png', width = 200, height = 200))),
-      fluidRow(a(href="https://github.com/elalemano/FAO.CropExplorer",target="_blank", align = "left", target="_blank",
+      fluidRow(a(href="https://github.com/elalemano/faoCropExplorer",target="_blank", align = "left", target="_blank",
               shiny::icon("code", lib = "font-awesome"), "Source Code")),
       fluidRow(a(href="mailto:l_busswinkel@hotmail.de", target="_blank", align = "left", shiny::icon("envelope", lib = "font-awesome"),
            "Contact Author")),
