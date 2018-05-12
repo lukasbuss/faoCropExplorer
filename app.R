@@ -1,6 +1,6 @@
 options(scipen = 30)
 
-require(shiny); require(knitr); require(dplyr); require(ggplot2); require(rlang); require(tidyr); require(Cairo); require(plotly);
+require(shiny); require(knitr); require(dplyr); require(rlang); require(tidyr); require(Cairo); require(plotly);
 
 
 # Define UI for application that draws a histogram
@@ -45,45 +45,51 @@ ui <- fluidPage(theme = "bootstrap.css",
                     fluidRow(column(6, wellPanel(plotlyOutput(outputId = "plotBarArea2"))),
                              column(6, wellPanel(plotlyOutput(outputId = "plotBarProduction2"))))),
            
-           tabPanel("Across Years",fluidRow(column(6,wellPanel(uiOutput("selectCountries3A"),uiOutput("selectCrop3A"),uiOutput("selectParmA"),actionButton("viewButton3A", "View", icon = icon("eye")))),
-                                           column(6, wellPanel(uiOutput("selectCountries3B"),uiOutput("selectCrop3B"), uiOutput("selectParmB"),actionButton("viewButton3B", "View", icon = icon("eye"))))),
-                    br(),              
-                    fluidRow(column(6, wellPanel(plotlyOutput(outputId = "acrossYearsPlotA"))),
-                               column(6,wellPanel(plotlyOutput(outputId = "acrossYearsPlotB")))))
-      ))))
+           tabPanel("Across Years",wellPanel(style = "padding-top: 2px;padding-bottom: 2px;", 
+                                             fluidRow(style = "height: 90px;", column(4,uiOutput("selectCountries3A")),column(4,uiOutput("selectCrop3A")),column(4,uiOutput("selectParmA"))),
+                                             fluidRow(column(2, actionButton("viewButton3A", "View", icon = icon("eye"))))),
+                    fluidRow(column(12, wellPanel(plotlyOutput(outputId = "acrossYearsPlotA")))),               
+                    wellPanel(style = "padding-top: 2px;padding-bottom: 2px;",
+                              fluidRow(style = "height: 90px;" , column(4, uiOutput("selectCountries3B")),column(4,uiOutput("selectCrop3B")),column(4,uiOutput("selectParmB"))),
+                              fluidRow(column(2, actionButton("viewButton3B", "View", icon = icon("eye"))))),
+
+                    fluidRow(column(12,wellPanel(plotlyOutput(outputId = "acrossYearsPlotB"))))
+      )))))
 
 #### Global Parms 
 
-mainTheme <- theme(legend.position="none", plot.title = element_text(hjust = 0.5,size=16,face="bold"),
-                   axis.text=element_text(size=12), 
-                   axis.title=element_text(size=14,face="bold"),
-                   plot.background = element_rect("white", colour = "black"),
-                   panel.background = element_blank(),
-                   panel.grid.major = element_blank(),
-                   panel.grid.minor.y = element_line(colour ="grey", linetype = "dashed"), 
-                   panel.grid.minor.x = element_blank(), 
-                   axis.line = element_line(colour = "black"),
-                   panel.border = element_rect(colour = "grey", fill=NA, size=0.5)) ###set ggplot theme
-lineTheme <- theme(plot.title = element_text(hjust = 0.5,size=16,face="bold"),
-                   axis.text=element_text(size=12), 
-                   axis.title=element_text(size=14,face="bold"),
-                   plot.background = element_rect("white", colour = "black"),
-                   panel.background = element_blank(),
-                   panel.grid.minor.y = element_blank(),
-                   panel.grid.minor.x = element_blank(),
-                   panel.grid.major.y = element_line(colour ="grey", linetype = "dashed"),
-                   panel.grid.major.x = element_line(colour ="grey", linetype = "dashed"),
-                   axis.line = element_line(colour = "black"),
-                   legend.title = element_blank(),
-                   legend.text = element_text(face = "bold", size =12),
-                   legend.justification=c(0,1), legend.position=c(0.01,0.995),
-                   legend.background =  element_rect(fill = "transparent", colour = "transparent"),
-                   panel.border = element_rect(colour = "grey", fill=NA, size=0.5)) 
-
 table_Europe <- read.table("Production_Crops_E_Europe.csv", sep=",", na.strings = "", header = TRUE, stringsAsFactors = F)
 
+countries <- table_Europe$Area %>% unique
+crops     <- table_Europe$Item %>% unique
+years     <- colnames(table_Europe)[grepl("Y",colnames(table_Europe))] %>% substr(., 2,5) %>% unique
 
-# Define server logic required to draw a histogram
+## For across years graphs
+yearColumns <- NULL
+for(i in 1961:2014){
+  yearColumns[i-1960] <- paste("Y", i, sep="")
+}
+
+selectCols <- names(table_Europe)[(names(table_Europe) %in% c("Area", "Item", "Element", "Unit", yearColumns))]
+acrossYears <- table_Europe[selectCols]
+
+##########################################
+#### Front page graph ####################
+##########################################
+plotDataFront <- gather(acrossYears, Year, Value,yearColumns[1]:yearColumns[length(yearColumns)], factor_key=TRUE) %>% dplyr::filter(., Element == "Yield" & Item == "Maize")
+plotDataFront[,"Year"] <- substr(plotDataFront$Year,2,5) %>% as.numeric
+plotDataFront$Value <- plotDataFront$Value / 10000 
+
+# areas <- gather(acrossYears, Year, Value,yearColumns[1]:yearColumns[length(yearColumns)], factor_key=TRUE) %>% dplyr::filter(., Element == "Area harvested" & Item == "Maize")
+plotData <- plotDataFront %>% group_by(Year) %>% summarise(Mean= mean(Value, na.rm =T), SD = sd(Value, na.rm =T))
+plotData$lowBound <- plotData$Mean - plotData$SD
+plotData$highBound <- plotData$Mean + plotData$SD
+plotData$linearModel <- lm(Mean ~ Year, data = plotData) %>% fitted
+
+
+####################################################
+# Define server logic ##############################
+####################################################
 server <- function(input, output, session) { 
   options(shiny.usecairo=T)
   
@@ -104,33 +110,10 @@ server <- function(input, output, session) {
                "This App is not an official FAO Site. The author is in no way affiliated with the FAO</p>", sep="<br/>"))
   })
   
- countries <- table_Europe$Area %>% unique
- crops     <- table_Europe$Item %>% unique
- years     <- colnames(table_Europe)[grepl("Y",colnames(table_Europe))] %>% substr(., 2,5) %>% unique
- 
- ## For across years graphs
- yearColumns <- NULL
- for(i in 1961:2014){
-   yearColumns[i-1960] <- paste("Y", i, sep="")
- }
- 
- selectCols <- names(table_Europe)[(names(table_Europe) %in% c("Area", "Item", "Element", "Unit", yearColumns))]
- acrossYears <- table_Europe[selectCols]
-
- 
- ##########################################
- #### Front page graph ####################
- ##########################################
- plotDataFront <- gather(acrossYears, Year, Value,yearColumns[1]:yearColumns[length(yearColumns)], factor_key=TRUE) %>% dplyr::filter(., Element == "Yield" & Item == "Maize")
- plotDataFront[,"Year"] <- substr(plotDataFront$Year,2,5) %>% as.numeric
- plotDataFront$Value <- plotDataFront$Value / 10000 
-
- plotData <- plotDataFront %>% group_by(Year) %>% summarise(Mean= mean(Value, na.rm =T))
-
- plot_ly(data = plotData, x = as.character(plotData[["Year"]]), y = ~Mean, type = "scatter", mode = "lines")
- 
  output$frontPlot <- renderPlotly({ 
-    frontPlot <- plot_ly(data = plotData, x = as.character(plotData[["Year"]]), y = ~Mean, type = "scatter", mode = "lines")
+    frontPlot <- plot_ly(data = plotData, x = as.character(plotData[["Year"]]), y = ~Mean, type = "scatter",  name = "Average Yield") %>%
+      add_trace(data = plotData, x = as.character(plotData[["Year"]]), y = ~linearModel, mode = "lines", name = "Fitted Yield") %>% 
+      layout(showlegend = FALSE, yaxis = list(title = "Average Yield (t/ha)"), xaxis = list(tickangle = 45), title ="Average Corn Yield in Europe")
 return(frontPlot)
 })
  
@@ -151,8 +134,7 @@ return(frontPlot)
                             select(., c(Item,Element,Unit,!!!rlang::syms(paste("Y",input$selectYear1,sep = ""))))
    
    table_filtered[table_filtered$Element=="Yield",4] <- table_filtered[table_filtered$Element=="Yield",4]/10000
-#   table_filtered[table_filtered$Element=="Production",4] <- table_filtered[table_filtered$Element=="Production",4]/1000
-   
+
    return(table_filtered)
  })
  
@@ -163,24 +145,29 @@ plotBarAvgYield1 <- eventReactive(input$viewButton1,{
     plotTitle <- paste("Average Yield in",input$selectCountry1,"in",input$selectYear1)
     plot <-plot_ly(data = plotData, x =  plotData[["Item"]], 
                    y=plotData[[paste("Y",input$selectYear1,sep = "")]], color= plotData[["Item"]], type = "bar") %>%
-      layout(yaxis = list(title= "Yield in t/ha"), title = plotTitle)
-             #    geom_col(width = 0.5)+xlab("Crop") + ylab("Yield in t/ha") + ggtitle(paste("Average Yield in",input$selectCountry1,"in",input$selectYear1))+ 
-              #   mainTheme +  scale_fill_brewer(palette = "Paired")
+      layout(yaxis = list(title= "Average Yield (t/ha)"), title = plotTitle)
    return(plot)})
 
 plotBarArea1 <- eventReactive(input$viewButton1,{ 
   plotData <- getData1()
-  plot <-ggplot(dplyr::filter(plotData,Element == "Area harvested"),aes_string("Item",paste("Y",input$selectYear1,sep = ""),fill="Item"))+
-    geom_col(width = 0.5)+xlab("Crop") + ylab("Area (ha)") + ggtitle(paste("Total area harvested in",input$selectCountry1,"in",input$selectYear1))+ 
-    mainTheme + scale_fill_brewer(palette = "Paired")
+  
+  plotData <- dplyr::filter(plotData,Element == "Area harvested")
+  plotTitle <- paste("Total area harvested in",input$selectCountry1,"in",input$selectYear1)
+  plot <-plot_ly(data = plotData, x =  plotData[["Item"]], 
+                 y=plotData[[paste("Y",input$selectYear1,sep = "")]], color= plotData[["Item"]], type = "bar") %>%
+    layout(yaxis = list(title= "Total Area (ha)"), title = plotTitle)
+  
   return(plot)})
 
 plotBarProduction1 <- eventReactive(input$viewButton1,{ 
   plotData <- getData1()
   
-  plot <-ggplot(dplyr::filter(plotData,Element == "Production"),aes_string("Item",paste("Y",input$selectYear1,sep = ""),fill="Item"))+
-    geom_col(width = 0.5)+xlab("Crop") + ylab("Production (t)") + ggtitle(paste("Total production in",input$selectCountry1,"in",input$selectYear1))+ 
-    mainTheme +scale_fill_brewer(palette = "Paired")
+  plotData <- dplyr::filter(plotData,Element == "Production")
+  plotTitle <- paste("Total production in",input$selectCountry1,"in",input$selectYear1)
+  plot <-plot_ly(data = plotData, x =  plotData[["Item"]],
+                 y=plotData[[paste("Y",input$selectYear1,sep = "")]], color= plotData[["Item"]], type = "bar") %>%
+    layout(yaxis = list(title= "Total Production (t)"), title = plotTitle)
+  
   return(plot)})
 
 
@@ -206,31 +193,42 @@ getData2 <- reactive({
     select(., c(Item,Element,Unit,!!!rlang::syms(paste("Y",input$selectYear2,sep = "")), Area))
   
   table_filtered[table_filtered$Element=="Yield",4] <- table_filtered[table_filtered$Element=="Yield",4]/10000
- # table_filtered[table_filtered$Element=="Production",4] <- table_filtered[table_filtered$Element=="Production",4]/1000
-  
+
   return(table_filtered)
 })
 
 plotBarAvgYield2 <- eventReactive(input$viewButton2,{ 
   plotData <- getData2()
-  plot <-ggplot(dplyr::filter(plotData,Element == "Yield"),aes_string("Area",paste("Y",input$selectYear2,sep = ""),fill="Area"))+
-    geom_col(width = 0.5)+xlab("Country") + ylab("Yield in t/ha") + ggtitle(paste("Average ", input$selectCrop2, "Yield in ",input$selectYear2))+ 
-    mainTheme +  scale_fill_brewer(palette = "Paired")
+  
+  plotData <- dplyr::filter(plotData,Element == "Yield")
+  plotTitle <- paste("Average", input$selectCrop2, "Yield in ",input$selectYear2)
+
+  plot <-plot_ly(data = plotData, x =  plotData[["Area"]], 
+                 y=plotData[[paste("Y",input$selectYear2,sep = "")]], color= plotData[["Area"]], type = "bar") %>%
+    layout(yaxis = list(title= "Average Yield (t/ha)"), title = plotTitle)
   return(plot)})
 
 plotBarArea2 <- eventReactive(input$viewButton2,{ 
   plotData <- getData2()
-  plot <-ggplot(dplyr::filter(plotData,Element == "Area harvested"),aes_string("Area",paste("Y",input$selectYear2,sep = ""),fill="Area"))+
-    geom_col(width = 0.5)+xlab("Country") + ylab("Area (ha)") + ggtitle(paste("Total ", input$selectCrop2, "area harvested in ",input$selectYear2))+ 
-    mainTheme + scale_fill_brewer(palette = "Paired")
+  
+  plotData <- dplyr::filter(plotData,Element == "Area harvested")
+  plotTitle <- paste("Total", input$selectCrop2, "area harvested in",input$selectYear2)
+  
+  plot <-plot_ly(data = plotData, x =  plotData[["Area"]], 
+                 y=plotData[[paste("Y",input$selectYear2,sep = "")]], color= plotData[["Area"]], type = "bar") %>%
+    layout(yaxis = list(title= "Total Area (ha)"), title = plotTitle)
+
   return(plot)})
 
 plotBarProduction2 <- eventReactive(input$viewButton2,{ 
   plotData <- getData2()
   
-  plot <-ggplot(dplyr::filter(plotData,Element == "Production"),aes_string("Area",paste("Y",input$selectYear2,sep = ""),fill="Area"))+
-    geom_col(width = 0.5)+xlab("Country") + ylab("Production (t)") + ggtitle(paste("Total ",input$selectCrop2, "production in ",input$selectYear2))+ 
-    mainTheme +scale_fill_brewer(palette = "Paired")
+  plotData <- dplyr::filter(plotData,Element == "Production")
+  plotTitle <- paste("Total ",input$selectCrop2, "Production in",input$selectYear2)
+  
+  plot <-plot_ly(data = plotData, x =  plotData[["Area"]], 
+                 y=plotData[[paste("Y",input$selectYear2,sep = "")]], color= plotData[["Area"]], type = "bar") %>%
+    layout(yaxis = list(title= "Total Production (t)"), title = plotTitle)
   return(plot)})
 
 
@@ -266,20 +264,21 @@ getDataAcrossA <- reactive({
 return(acrossYearsData)
 })
 
-plotAcrossYearsA <- eventReactive(input$viewButton3A,{ plotData <- getDataAcrossA()
+plotAcrossYearsA <- eventReactive(input$viewButton3A,{
+  plotData <- getDataAcrossA()
   
   if(input$selectParmA == "Yield"){
     labelY <- "Average Yield (t/ha)" 
   } else if (input$selectParmA == "Production"){
-    labelY <- "Production (t)"
+    labelY <- "Total Production (t)"
   } else if (input$selectParmA == "Area harvested"){
-    labelY <- "Area harvested (ha)"
+    labelY <- "Total Area harvested (ha)"
   }
-
-  
-  plot <-ggplot(plotData,aes(Year, Value, colour = factor(Area))) + geom_line(size = 1.2, na.rm = T) + geom_point() + scale_x_continuous(breaks = seq(1960, 2010, 10))+ 
-  ylab(labelY) + xlab("Year (y)") + ggtitle(paste("Historic trend in", input$selectParmA))+ lineTheme +scale_fill_brewer(palette = "Paired")
-    return(plot)})
+ 
+  labelPlot <- paste("Historic trend in", input$selectParmA)
+  plot <- plot_ly(data = plotData, x = ~Year, y = ~Value, type = "scatter", mode = "lines", color = ~Area) %>%
+          layout(yaxis = list(title = labelY), title = labelPlot)
+  return(plot)})
 
 output$acrossYearsPlotA <- renderPlotly(plotAcrossYearsA())
 
@@ -301,16 +300,17 @@ getDataAcrossB <- reactive({
 
 plotAcrossYearsB <- eventReactive(input$viewButton3B,{ plotData <- getDataAcrossB()
 
-if(input$selectParmB == "Yield"){
+if(input$selectParmA == "Yield"){
   labelY <- "Average Yield (t/ha)" 
-} else if (input$selectParmB == "Production"){
-  labelY <- "Production (t)"
-} else if (input$selectParmB == "Area harvested"){
-  labelY <- "Area harvested (ha)"
+} else if (input$selectParmA == "Production"){
+  labelY <- "Total Production (t)"
+} else if (input$selectParmA == "Area harvested"){
+  labelY <- "Total Area harvested (ha)"
 }
-#browser()
-plot <-ggplot(plotData,aes(Year, Value, colour = factor(Area))) + geom_line(size = 1.2, na.rm = T) + geom_point() + lineTheme + scale_x_continuous(breaks = seq(1960, 2010, 10))+
-  ylab(labelY) + xlab("Year (y)") + ggtitle(paste("Historic trend in", input$selectParmB)) +scale_fill_brewer(palette = "Paired")
+
+labelPlot <- paste("Historic trend in", input$selectParmB)
+plot <- plot_ly(data = plotData, x = ~Year, y = ~Value, type = "scatter", mode = "lines", color = ~Area) %>%
+  layout(yaxis = list(title = labelY), title = labelPlot)
 return(plot)})
 
 output$acrossYearsPlotB <- renderPlotly(plotAcrossYearsB())

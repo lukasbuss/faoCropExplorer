@@ -5,6 +5,6 @@ account: buzzwinkel
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 301701
-bundleId: 1286958
+bundleId: 1358579
 url: https://buzzwinkel.shinyapps.io/fao_crops_explorer/
-when: 1521985717.66585
+when: 1525616227.72406
