@@ -328,11 +328,11 @@ getDataAcrossB <- reactive({
 
 plotAcrossYearsB <- eventReactive(input$viewButton3B,{ plotData <- getDataAcrossB()
 
-if(input$selectParmA == "Yield"){
+if(input$selectParmB == "Yield"){
   labelY <- "Average Yield (t/ha)" 
-} else if (input$selectParmA == "Production"){
+} else if (input$selectParmB == "Production"){
   labelY <- "Total Production (t)"
-} else if (input$selectParmA == "Area harvested"){
+} else if (input$selectParmB == "Area harvested"){
   labelY <- "Total Area harvested (ha)"
 }
 
