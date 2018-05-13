@@ -75,24 +75,24 @@ acrossYears <- table_Europe[selectCols]
 ##########################################
 #### Front page graph ####################
 ##########################################
-plotDataFront <- gather(acrossYears, Year, Value,yearColumns[1]:yearColumns[length(yearColumns)], factor_key=TRUE) %>% dplyr::filter(., Element == "Yield" & Item == "Maize")
+plotDataFront <- gather(acrossYears, Year, Value,yearColumns[1]:yearColumns[length(yearColumns)], factor_key=TRUE) %>% dplyr::filter(., Item == "Maize")
 plotDataFront[,"Year"] <- substr(plotDataFront$Year,2,5) %>% as.numeric
-plotDataFront$Value <- plotDataFront$Value / 10000 
 
-plotData <- plotDataFront %>% group_by(Year) %>% summarise(Mean= mean(Value, na.rm =T), SD = sd(Value, na.rm =T))
-plotData$lowBound <- plotData$Mean - plotData$SD
-plotData$highBound <- plotData$Mean + plotData$SD
-plotData$linearModel <- lm(Mean ~ Year, data = plotData) %>% fitted
+hectarsPerYear <- plotDataFront %>% dplyr::filter(., Element == "Area harvested") %>% group_by(Year) %>% summarise(TotalArea = sum(Value, na.rm = T))
+productionPerYear <- plotDataFront %>% dplyr::filter(., Element == "Production") %>% group_by(Year) %>% summarise(TotalProduction = sum(Value, na.rm = T))
 
+plotData <- merge(hectarsPerYear,productionPerYear) 
+plotData$averageYield <- plotData$TotalProduction/plotData$TotalArea
+plotData$linearModel <- lm(averageYield ~ Year, data = plotData) %>% fitted
 
 yieldThen <- list(
   xref = 'paper',
   yref = 'y',
   x = 0.05,
-  y = plotData$Mean[1],
+  y = plotData$averageYield[1]+0.01,
   xanchor = 'right',
   yanchor = 'middle',
-  text = paste(round(plotData$Mean[1],2), "(t/ha)"),
+  text = paste(round(plotData$averageYield[1],2), "(t/ha)"),
   autosize = TRUE,
   font = list(family = 'Arial',
               size = 16,
@@ -103,10 +103,10 @@ yieldNow <- list(
   xref = 'paper',
   yref = 'y',
   x = 1.00,
-  y = plotData$Mean[54] - 0.3,
+  y = plotData$averageYield[54] - 0.3,
   xanchor = 'right',
   yanchor = 'middle',
-  text = paste(round(plotData$Mean[54],2), "(t/ha)"),
+  text = paste(round(plotData$averageYield[54],2), "(t/ha)"),
   autosize = TRUE,
   font = list(family = 'Arial',
               size = 16,
@@ -137,7 +137,7 @@ server <- function(input, output, session) {
   })
   
  output$frontPlot <- renderPlotly({ 
-    frontPlot <- plot_ly(data = plotData, x = as.character(plotData[["Year"]]), y = ~Mean, type = "scatter",  name = "Average Yield") %>%
+    frontPlot <- plot_ly(data = plotData, x = as.character(plotData[["Year"]]), y = ~averageYield, type = "scatter",  name = "Average Yield") %>%
       add_trace(data = plotData, x = as.character(plotData[["Year"]]), y = ~linearModel, mode = "lines", name = "Fitted Yield") %>% 
       layout(showlegend = FALSE, yaxis = list(title = "Average Yield (t/ha)"), xaxis = list(tickangle = 45), title ="Average Corn Yield in Europe") %>%
       layout(annotations = yieldThen) %>% 
